@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-const API_BASE_URL = "http://lml.lol:55000"; // Add your API base URL here
+const API_BASE_URL = "/api";
 
 const App = () => {
   const [message, setMessage] = useState("");
@@ -40,8 +40,8 @@ const App = () => {
   };
 
   useEffect(() => {
-    const intervalId = setInterval(pollStatus, 500);
-    return () => clearInterval(intervalId);
+    // const intervalId = setInterval(pollStatus, 500);
+    // return () => clearInterval(intervalId);
   }, []);
 
   const callEndpoint = async (endpoint) => {
