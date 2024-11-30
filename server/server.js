@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { answerImageQuestionWithJSON } from "gemini-ai";
+import setFitRxLevel from "./util/set-bluetooth-level.js";
+import fs from "fs";
+import path from "path";
 dotenv.config();
 
 const app = express();
@@ -11,53 +14,76 @@ app.use(express.json({ limit: "500mb" }));
 app.use(express.urlencoded({ limit: "500mb", extended: true }));
 
 // Tasker command functions
-function setupFitRx() {
-  loadApp("com.fitrx.wondonful.kneadtoolkit");
-  vibrate(1000);
-  flash(`p=${local("%priority")}`);
-  performTask("Setup Fitrx", 200);
-}
+function setupFitRx() {}
 
 function increaseFitRx() {
-  loadApp("com.fitrx.wondonful.kneadtoolkit");
-  performTask("FocusFitRx", 200); // need to touch the app incase focused on other app
-  performTask("Increase FitRx", 200);
+  setFitRxLevel(4);
 }
 
 function decreaseFitRx() {
-  loadApp("com.fitrx.wondonful.kneadtoolkit");
-  performTask("FocusFitRx", 200); // need to touch the app incase focused on other app
-  flash("decreasing");
-  performTask("Decrease FitRx", 101);
+  setFitRxLevel(0);
 }
 
 async function endFitRx() {
-  loadApp("com.fitrx.wondonful.kneadtoolkit");
-  const delay = async (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  performTask("Acupuncture", 200);
-  await delay(200);
-  performTask("Knead", 200);
-  await delay(200);
-  performTask("Acupuncture", 200);
+  setFitRxLevel(0);
 }
 
 async function makeRequest(cmd) {
-  const command = typeof cmd == "function" ? `(${cmd.toString()})()` : cmd;
-  const response = await fetch(`${process.env.TASKER_API_BASE_URL}/run`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cmd: command }),
-  });
-  return await response.text();
+  cmd();
 }
 
-export function createFitRxApp(goal) {
+export function createFitRxApp() {
+  const stateFilePath = path.join(import.meta.dirname, "state.json");
+  let goal;
+
+  // Load state from JSON file
+  function loadState() {
+    try {
+      if (!fs.existsSync(stateFilePath)) {
+        const initialState = {
+          goal: process.env.INITIAL_GOAL,
+        };
+        fs.writeFileSync(stateFilePath, JSON.stringify(initialState), "utf-8");
+      }
+      const data = fs.readFileSync(stateFilePath, "utf-8");
+      const state = JSON.parse(data);
+      goal = state.goal;
+      return state;
+    } catch (error) {
+      console.error("Could not load state:", error);
+      goal = process.env.INITIAL_GOAL || "Default goal";
+      return { goal };
+    }
+  }
+
+  // Save state to JSON file
+  function updateStoredState(stateChange) {
+    const state = loadState();
+    fs.writeFileSync(
+      stateFilePath,
+      JSON.stringify({ state, ...stateChange }),
+      "utf-8"
+    );
+  }
+
+  loadState();
+
   app.get("/", (req, res) => {
     res.send("hello");
   });
 
   app.get("/goal", (req, res) => {
     res.send(goal);
+  });
+
+  app.post("/set-goal", (req, res) => {
+    try {
+      goal = req.body.goal;
+      updateStoredState({ goal });
+      res.send("Goal updated successfully");
+    } catch (error) {
+      res.status(500).send("Error updating goal");
+    }
   });
 
   app.post("/setup", async (req, res, next) => {
@@ -123,9 +149,6 @@ export function createFitRxApp(goal) {
       });
       const isFailed = !isMatch;
       if (isFailed) {
-        await makeRequest(increaseFitRx);
-        await makeRequest(increaseFitRx);
-        await makeRequest(increaseFitRx);
         await makeRequest(increaseFitRx);
       }
       res.send({ isMatch, explanation });
@@ -193,5 +216,4 @@ export async function handleImageSubmission({ goal, image, mimeType }) {
 }
 
 // Start the server
-const goal = process.env.GOAL;
-createFitRxApp(goal);
+createFitRxApp();

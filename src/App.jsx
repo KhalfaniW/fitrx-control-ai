@@ -8,6 +8,7 @@ const App = () => {
   const [imageMimeType, setImageMimeType] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [goalMessage, setGoalMessage] = useState("");
+  const [newGoal, setNewGoal] = useState("");
 
   // Set message helper
   const handleSetMessage = (msg) => {
@@ -91,6 +92,21 @@ const App = () => {
     }
   };
 
+  const updateGoal = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/set-goal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal: newGoal }),
+      });
+      const data = await response.text();
+      setGoalMessage(newGoal);
+      handleSetMessage(data);
+    } catch (error) {
+      handleSetMessage(`Error updating goal: ${error.message}`);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-center text-gray-800">
@@ -131,6 +147,19 @@ const App = () => {
           onClick={uploadImage}
         >
           Upload Image
+        </button>
+        <input
+          className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg"
+          type="text"
+          placeholder="Enter new goal"
+          value={newGoal}
+          onChange={(e) => setNewGoal(e.target.value)}
+        />
+        <button
+          className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
+          onClick={updateGoal}
+        >
+          Update Goal
         </button>
       </div>
 
