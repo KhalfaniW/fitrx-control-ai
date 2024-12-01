@@ -33,17 +33,17 @@ const App = () => {
   const pollStatus = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/status`);
-      const statusText = await response.text();
-      setStatusMessage(statusText);
+      const status = await response.json(); // Parse JSON response
+      setStatusMessage(`Level: ${status.level}, Mode: ${status.mode}`);
     } catch (error) {
       setStatusMessage(`Error fetching status: ${error.message}`);
     }
   };
 
-  useEffect(() => {
-    // const intervalId = setInterval(pollStatus, 500);
-    // return () => clearInterval(intervalId);
-  }, []);
+  // useEffect(() => {
+  //   const intervalId = setInterval(pollStatus, 500);
+  //   return () => clearInterval(intervalId);
+  // }, []);
 
   const callEndpoint = async (endpoint) => {
     try {

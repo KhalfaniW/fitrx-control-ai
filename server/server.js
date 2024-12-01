@@ -2,10 +2,21 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { answerImageQuestionWithJSON } from "gemini-ai";
-import setFitRxLevel from "./util/set-bluetooth-level.js";
+import {
+  queryFitRxStatus,
+  setFitRxLevel,
+  setupBluetoothServer,
+} from "./util/bluetooth.js";
 import fs from "fs";
 import path from "path";
 dotenv.config();
+
+const { server: bluetoothServer, cleanup } = await setupBluetoothServer();
+
+const queryStatus = async () => await queryFitRxStatus(bluetoothServer);
+
+console.log("initalStatus", await queryStatus());
+const setLevel = async (level) => await setFitRxLevel(bluetoothServer, level);
 
 const app = express();
 
@@ -13,23 +24,22 @@ app.use(cors());
 app.use(express.json({ limit: "500mb" }));
 app.use(express.urlencoded({ limit: "500mb", extended: true }));
 
-// Tasker command functions
-function setupFitRx() {}
-
-function increaseFitRx() {
-  setFitRxLevel(4);
+async function increaseFitRx() {
+  const currentLevel = (await queryStatus()).level;
+  if (currentLevel < 9) {
+    await setLevel(currentLevel + 1);
+  }
 }
 
-function decreaseFitRx() {
-  setFitRxLevel(0);
+async function decreaseFitRx() {
+  const currentLevel = (await queryStatus()).level;
+  if (currentLevel > 0) {
+    await setLevel(currentLevel - 1);
+  }
 }
 
 async function endFitRx() {
-  setFitRxLevel(0);
-}
-
-async function makeRequest(cmd) {
-  cmd();
+  await setLevel(0);
 }
 
 export function createFitRxApp() {
@@ -86,30 +96,38 @@ export function createFitRxApp() {
     }
   });
 
-  app.post("/setup", async (req, res, next) => {
+  app.post("/set-level", async (req, res) => {
     try {
-      await makeRequest(setupFitRx);
-      res.send("FitRx setup completed");
+      const { level } = req.body;
+      await setLevel(level);
+      res.send(await queryStatus());
     } catch (error) {
-      next(error);
+      res.status(500).send("Error updating FitRx level");
     }
   });
 
-  app.post("/setup1", async (req, res, next) => {
+  let isStatusProcessing = false;
+
+  app.get("/status", async (req, res, next) => {
+    if (isStatusProcessing) {
+      return res.status(429).send("Too Many Requests");
+    }
+    isStatusProcessing = true;
     try {
-      console.log("setup clicked");
-      await makeRequest('performTask("Setup FitRx",99999);');
-      res.send("FitRx setup completed");
+      const status = await queryStatus();
+      res.send(status);
     } catch (error) {
       next(error);
+    } finally {
+      isStatusProcessing = false;
     }
   });
 
   app.post("/increase", async (req, res, next) => {
     try {
       console.log("increase received");
-      await makeRequest(increaseFitRx);
-      res.send("FitRx increased");
+      await increaseFitRx();
+      res.send(await queryStatus());
     } catch (error) {
       next(error);
     }
@@ -118,8 +136,8 @@ export function createFitRxApp() {
   app.post("/decrease", async (req, res, next) => {
     try {
       console.log("decrease received");
-      await makeRequest(decreaseFitRx);
-      res.send("FitRx decreased");
+      await decreaseFitRx();
+      res.send(await queryStatus());
     } catch (error) {
       next(error);
     }
@@ -128,8 +146,8 @@ export function createFitRxApp() {
   app.post("/end", async (req, res, next) => {
     try {
       console.log("end FitRx");
-      await makeRequest(endFitRx);
-      res.send("FitRx ended");
+      await endFitRx();
+      res.send(await queryStatus());
     } catch (error) {
       next(error);
     }
@@ -139,7 +157,7 @@ export function createFitRxApp() {
     try {
       const { image, mimeType } = req.body;
       if (image) {
-        await makeRequest(endFitRx);
+        await endFitRx();
       }
 
       const { isMatch, explanation } = await handleImageSubmission({
@@ -149,19 +167,9 @@ export function createFitRxApp() {
       });
       const isFailed = !isMatch;
       if (isFailed) {
-        await makeRequest(increaseFitRx);
+        await increaseFitRx();
       }
       res.send({ isMatch, explanation });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.post("/custom", async (req, res, next) => {
-    try {
-      const { code } = req.body;
-      await makeRequest(code);
-      res.send("Custom code executed");
     } catch (error) {
       next(error);
     }
