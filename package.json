@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev": "concurrently --handle-input \"npm run dev:client\" \"npm run dev:server\"",
     "dev:client": "vite --host",
-    "dev:server": "node --watch server/server.js",
+    "dev:server": "nodemon --quiet server/server.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -15,8 +15,10 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "node-ble": "^1.12.0",
+    "nodemon": "^3.1.7",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "screenshot-desktop": "^1.15.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",

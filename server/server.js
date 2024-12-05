@@ -5,10 +5,12 @@ import { answerImageQuestionWithJSON } from "gemini-ai";
 import {
   queryFitRxStatus,
   setFitRxLevel,
+  setFitRxMode,
   setupBluetoothServer,
 } from "./util/bluetooth.js";
 import fs from "fs";
 import path from "path";
+import { captureScreen } from "./util/capture.js";
 dotenv.config();
 
 const { server: bluetoothServer, cleanup } = await setupBluetoothServer();
@@ -16,8 +18,9 @@ const { server: bluetoothServer, cleanup } = await setupBluetoothServer();
 const queryStatus = async () => await queryFitRxStatus(bluetoothServer);
 
 console.log("initalStatus", await queryStatus());
-const setLevel = async (level) => await setFitRxLevel(bluetoothServer, level);
 
+const setLevel = async (level) => await setFitRxLevel(bluetoothServer, level);
+const setMode = async (mode) => await setFitRxMode(bluetoothServer, mode);
 const app = express();
 
 app.use(cors());
@@ -49,7 +52,8 @@ export function createFitRxApp() {
   // Load state from JSON file
   function loadState() {
     try {
-      if (!fs.existsSync(stateFilePath)) {
+      const fileDoesNotExist = !fs.existsSync(stateFilePath);
+      if (fileDoesNotExist) {
         const initialState = {
           goal: process.env.INITIAL_GOAL,
         };
@@ -66,13 +70,12 @@ export function createFitRxApp() {
     }
   }
 
-  // Save state to JSON file
   function updateStoredState(stateChange) {
     const state = loadState();
     fs.writeFileSync(
       stateFilePath,
-      JSON.stringify({ state, ...stateChange }),
-      "utf-8"
+      JSON.stringify({ ...state, ...stateChange }),
+      "utf-8",
     );
   }
 
@@ -90,6 +93,7 @@ export function createFitRxApp() {
     try {
       goal = req.body.goal;
       updateStoredState({ goal });
+      console.log("new state", loadState());
       res.send("Goal updated successfully");
     } catch (error) {
       res.status(500).send("Error updating goal");
@@ -100,6 +104,29 @@ export function createFitRxApp() {
     try {
       const { level } = req.body;
       await setLevel(level);
+      res.send(await queryStatus());
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Error updating FitRx level");
+    }
+  });
+
+  app.post("/set-mode", async (req, res) => {
+    try {
+      const { mode } = req.body;
+      await setMode(mode);
+      res.send(await queryStatus());
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Error updating FitRx mode");
+    }
+  });
+
+  app.post("/set-fitrx", async (req, res) => {
+    try {
+      const { mode, level } = req.body;
+      await setLevel(level);
+      await setMode(mode);
       res.send(await queryStatus());
     } catch (error) {
       res.status(500).send("Error updating FitRx level");
@@ -167,6 +194,26 @@ export function createFitRxApp() {
       });
       const isFailed = !isMatch;
       if (isFailed) {
+        await increaseFitRx();
+      }
+      res.send({ isMatch, explanation });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/capture", async (req, res, next) => {
+    try {
+      const { image, mimeType } = await captureScreen();
+      const { isMatch, explanation } = await handleImageSubmission({
+        goal,
+        image,
+        mimeType,
+      });
+      if (image) {
+        await endFitRx();
+      }
+      if (!isMatch) {
         await increaseFitRx();
       }
       res.send({ isMatch, explanation });

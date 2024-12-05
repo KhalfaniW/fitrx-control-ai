@@ -132,6 +132,28 @@ async function sendQueryMessage(gattServer) {
   const data = Buffer.from(queryCommand, "hex");
   await listenerCharacteristic.writeValue(data, { type: "command" });
 }
+
+export async function setFitRxMode(gattServer,mode) {
+    if (mode < 0 || mode > 8) {
+        throw new Error("Mode must be between 0 and 8");
+    }
+    const service = await gattServer.getPrimaryService(
+        "0000ae3a-0000-1000-8000-00805f9b34fb",
+    );
+    const listenerCharacteristic = await service.getCharacteristic(
+        "0000ae3b-0000-1000-8000-00805f9b34fb",
+    );
+
+    const level = 2;
+    // `acad04a0000110${level}bcbd`
+    // `acad04a111111105bcbd` 
+    const levelCommand =        `acad04a11111110${mode}bcbd`
+                           //    acad04a00000000${level}bcbd
+    const data = Buffer.from(levelCommand, "hex");
+    await listenerCharacteristic.writeValue(data, { type: "command" });
+    console.log("listenerCharacteristic sent");
+}
+
 export async function setFitRxLevel(gattServer, level) {
   if (level < 0 || level > 9) {
     throw new Error("Level must be between 0 and 9");
@@ -143,7 +165,7 @@ export async function setFitRxLevel(gattServer, level) {
     "0000ae3b-0000-1000-8000-00805f9b34fb",
   );
 
-  const levelCommand = `acad04a00000000${level.toString()}bcbd`;
+  const levelCommand = `acad04a00000000${level}bcbd`;
 
   const data = Buffer.from(levelCommand, "hex");
   await listenerCharacteristic.writeValue(data, { type: "command" });

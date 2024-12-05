@@ -92,7 +92,7 @@ const App = () => {
     }
   };
 
-  const updateGoal = async () => {
+  const updateGoal = async (newGoal) => {
     try {
       const response = await fetch(`${API_BASE_URL}/set-goal`, {
         method: "POST",
@@ -104,6 +104,45 @@ const App = () => {
       handleSetMessage(data);
     } catch (error) {
       handleSetMessage(`Error updating goal: ${error.message}`);
+    }
+  };
+  const updateLevel = async (newLevel) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/set-level`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: newLevel }),
+      });
+      const data = await response.text();
+    } catch (error) {
+      handleSetMessage(`Error updating goal: ${error.message}`);
+    }
+  };
+
+  const updateMode = async (newMode) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/set-mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: newMode }),
+      });
+      const data = await response.text();
+      handleSetMessage(data);
+    } catch (error) {
+      handleSetMessage(`Error updating mode: ${error.message}`);
+    }
+  };
+
+  const captureScreenFromServer = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/capture`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await response.json();
+      handleSetMessage(`Capture Result: ${data.explanation}`);
+    } catch (error) {
+      handleSetMessage(`Error capturing screen: ${error.message}`);
     }
   };
 
@@ -127,10 +166,34 @@ const App = () => {
           Increase
         </button>
         <button
+          className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+          onClick={() => updateLevel(4)}
+        >
+          prioritize
+        </button>
+        <button
           className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
           onClick={() => callEndpoint("/decrease")}
         >
           Decrease
+        </button>
+        <button
+          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+          onClick={() => callEndpoint("/end")}
+        >
+          end
+        </button>
+        <button
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          onClick={() => updateMode(1)} // You can adjust mode number as needed
+        >
+          Change Mode
+        </button>
+        <button
+          className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+          onClick={captureScreenFromServer}
+        >
+          Capture Screen
         </button>
       </div>
 
@@ -157,7 +220,7 @@ const App = () => {
         />
         <button
           className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
-          onClick={updateGoal}
+          onClick={() => updateGoal(newGoal)}
         >
           Update Goal
         </button>
@@ -184,7 +247,7 @@ const App = () => {
         <code>{statusMessage}</code>
       </div>
 
-      <div className="text-center text-red-500 mt-4">
+      <div className="text-center  mt-4">
         <code>{message}</code>
       </div>
     </div>
